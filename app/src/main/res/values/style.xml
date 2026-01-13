@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="AppNavigationView"
+        parent="Widget.MaterialComponents.NavigationView">
+
+        <!-- HILANGKAN ROUNDED TANPA SHAPE -->
+        <item name="android:background">@color/white</item>
+
+    </style>
+
+
+
+
+
+</resources>
