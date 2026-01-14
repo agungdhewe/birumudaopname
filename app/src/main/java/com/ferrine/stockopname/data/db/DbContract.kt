@@ -7,6 +7,11 @@ object DbContract {
 		const val COLUMN_USERNAME = "username"
 		const val COLUMN_PASSWORD = "password"
 		const val COLUMN_FULLNAME = "fullname"
+		const val COLUMN_IS_ADMIN = "is_admin"
+		const val COLUMN_ALLOW_OPNAME = "allow_opname"
+		const val COLUMN_ALLOW_RECEIVING = "allow_receiving"
+		const val COLUMN_ALLOW_TRANSFER = "allow_transfer"
+		const val COLUMN_ALLOW_PRINTLABEL = "allow_printlabel"
 	}
 
 

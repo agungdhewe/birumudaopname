@@ -7,5 +7,10 @@ import kotlinx.parcelize.Parcelize
 data class User(
     val username: String = "",
     val fullname: String = "",
-    val password: String = ""
+    val password: String = "",
+    val isAdmin: Boolean = false,
+    val allowOpname: Boolean = false,
+    val allowReceiving: Boolean = false,
+    val allowTransfer: Boolean = false,
+    val allowPrintlabel: Boolean = false
 ) : Parcelable

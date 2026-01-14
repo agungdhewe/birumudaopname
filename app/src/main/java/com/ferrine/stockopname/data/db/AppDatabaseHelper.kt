@@ -20,26 +20,60 @@ class AppDatabaseHelper(context: Context) :
 	override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
 	}
 
+	fun resetDatabase() {
+		val db = writableDatabase
+		db.execSQL("DROP TABLE IF EXISTS ${DbContract.UserTable.TABLE_NAME}")
+		db.execSQL("DROP TABLE IF EXISTS ${DbContract.ItemTable.TABLE_NAME}")
+		db.execSQL("DROP TABLE IF EXISTS ${DbContract.BarcodeTable.TABLE_NAME}")
+		db.execSQL("DROP TABLE IF EXISTS ${DbContract.OpnameTable.TABLE_NAME}")
+		onCreate(db)
+	}
+
 	private fun createUserTable(db: SQLiteDatabase) {
 		db.execSQL("""
 			CREATE TABLE ${DbContract.UserTable.TABLE_NAME} (
 				${DbContract.UserTable.COLUMN_USERNAME} TEXT PRIMARY KEY,
 				${DbContract.UserTable.COLUMN_PASSWORD} TEXT,
-				${DbContract.UserTable.COLUMN_FULLNAME} TEXT
+				${DbContract.UserTable.COLUMN_FULLNAME} TEXT,
+				${DbContract.UserTable.COLUMN_IS_ADMIN} INTEGER,
+				${DbContract.UserTable.COLUMN_ALLOW_OPNAME} INTEGER,
+				${DbContract.UserTable.COLUMN_ALLOW_RECEIVING} INTEGER,
+				${DbContract.UserTable.COLUMN_ALLOW_TRANSFER} INTEGER,
+				${DbContract.UserTable.COLUMN_ALLOW_PRINTLABEL} INTEGER
 			)
         """)
 	}
 
 	private fun insertDummyUsers(db: SQLiteDatabase) {
-		insertUser(db, "agung", "Agung Nugroho", "rahasia")
-		insertUser(db, "admin", "Admin", "admin")
+		// agung isAdmin = false dan allowOpname
+		insertUser(db, "agung", "Agung Nugroho", "rahasia", 
+			isAdmin = false, allowOpname = true, allowReceiving = false, allowTransfer = false, allowPrintlabel = false)
+		
+		// admin isAdmin = true, dan allow all
+		insertUser(db, "admin", "Admin", "admin", 
+			isAdmin = true, allowOpname = true, allowReceiving = true, allowTransfer = true, allowPrintlabel = true)
 	}
 
-	private fun insertUser(db: SQLiteDatabase, username: String, fullname: String, pass: String) {
+	private fun insertUser(
+		db: SQLiteDatabase, 
+		username: String, 
+		fullname: String, 
+		pass: String,
+		isAdmin: Boolean = false,
+		allowOpname: Boolean = false,
+		allowReceiving: Boolean = false,
+		allowTransfer: Boolean = false,
+		allowPrintlabel: Boolean = false
+	) {
 		val values = ContentValues().apply {
 			put(DbContract.UserTable.COLUMN_USERNAME, username)
 			put(DbContract.UserTable.COLUMN_FULLNAME, fullname)
 			put(DbContract.UserTable.COLUMN_PASSWORD, UserRepository.hashPassword(pass))
+			put(DbContract.UserTable.COLUMN_IS_ADMIN, if (isAdmin) 1 else 0)
+			put(DbContract.UserTable.COLUMN_ALLOW_OPNAME, if (allowOpname) 1 else 0)
+			put(DbContract.UserTable.COLUMN_ALLOW_RECEIVING, if (allowReceiving) 1 else 0)
+			put(DbContract.UserTable.COLUMN_ALLOW_TRANSFER, if (allowTransfer) 1 else 0)
+			put(DbContract.UserTable.COLUMN_ALLOW_PRINTLABEL, if (allowPrintlabel) 1 else 0)
 		}
 		db.insert(DbContract.UserTable.TABLE_NAME, null, values)
 	}

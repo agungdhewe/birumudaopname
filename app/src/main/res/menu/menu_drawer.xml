@@ -27,6 +27,10 @@
         android:title="Print Label"
         android:icon="@drawable/ic_print"/>
 
+    <item
+        android:id="@+id/menu_user"
+        android:title="User"
+        android:icon="@drawable/ic_person"/>
 
     <item
         android:id="@+id/menu_setting"

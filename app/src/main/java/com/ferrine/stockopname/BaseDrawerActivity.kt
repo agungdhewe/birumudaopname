@@ -16,6 +16,7 @@ import com.ferrine.stockopname.ui.printlabel.PrintlabelActivity
 import com.ferrine.stockopname.ui.receiving.ReceivingActivity
 import com.ferrine.stockopname.ui.setting.SettingActivity
 import com.ferrine.stockopname.ui.transfer.TransferActivity
+import com.ferrine.stockopname.ui.user.UserActivity
 
 abstract class BaseDrawerActivity : BaseActivity(),
 	NavigationView.OnNavigationItemSelectedListener {
@@ -87,6 +88,12 @@ abstract class BaseDrawerActivity : BaseActivity(),
 		menu.findItem(R.id.menu_receiving).isVisible = workingType == WorkingTypes.RECEIVING.name
 		menu.findItem(R.id.menu_transfer).isVisible = workingType == WorkingTypes.TRANSFER.name
 		menu.findItem(R.id.menu_print_label).isVisible = workingType == WorkingTypes.PRINTLABEL.name
+		
+		// Menu User hanya muncul untuk Admin
+		menu.findItem(R.id.menu_user).isVisible = sessionManager.isAdmin
+		
+		// Menu Setting muncul untuk semua user (seperti yang direvisi)
+		menu.findItem(R.id.menu_setting).isVisible = true
 	}
 
 	private fun setupHeader() {
@@ -102,6 +109,7 @@ abstract class BaseDrawerActivity : BaseActivity(),
 			R.id.menu_receiving -> navigate(ReceivingActivity::class.java)
 			R.id.menu_transfer -> navigate(TransferActivity::class.java)
 			R.id.menu_print_label -> navigate(PrintlabelActivity::class.java)
+			R.id.menu_user -> navigate(UserActivity::class.java)
 			R.id.menu_setting -> navigate(SettingActivity::class.java)
 			R.id.menu_logout -> showLogoutDialog()
 		}
@@ -115,10 +123,11 @@ abstract class BaseDrawerActivity : BaseActivity(),
 			intent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
 			startActivity(intent)
 
-			// Jika pindah ke SettingActivity, JANGAN finish activity saat ini
+			// Jika pindah ke SettingActivity atau UserActivity, JANGAN finish activity saat ini
 			// supaya bisa kembali ke activity sebelumnya saat tombol back ditekan.
-			// Jika pindah antar fitur (misal Opname ke Receiving), tetap finish activity lama.
-			if (this !is MainActivity && target != SettingActivity::class.java) {
+			if (this !is MainActivity && 
+				target != SettingActivity::class.java && 
+				target != UserActivity::class.java) {
 				finish()
 			}
 		}

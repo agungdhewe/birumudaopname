@@ -1,59 +1,55 @@
 package com.ferrine.stockopname.ui.login
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import com.ferrine.stockopname.R
 import com.ferrine.stockopname.data.db.AppDatabaseHelper
+import com.ferrine.stockopname.data.model.User
+import com.ferrine.stockopname.data.model.WorkingTypes
 import com.ferrine.stockopname.data.repository.UserRepository
-import com.ferrine.stockopname.ui.setting.SettingActivity
 import com.ferrine.stockopname.ui.main.MainActivity
+import com.ferrine.stockopname.ui.setting.SettingActivity
 import com.ferrine.stockopname.utils.SessionManager
+import com.google.android.material.textfield.TextInputEditText
 
 class LoginActivity : AppCompatActivity() {
 
-	companion object {
-		private const val DUMMY_TOKEN = "232353453"
-	}
-
-	private lateinit var etUsername: EditText
-	private lateinit var etPassword: EditText
+	private lateinit var etUsername: TextInputEditText
+	private lateinit var etPassword: TextInputEditText
 	private lateinit var btnLogin: Button
-	private lateinit var tvSetting: TextView
+	private lateinit var tvSetting: Button
+	private lateinit var tvWorkingTypeTitle: TextView
 
 	private lateinit var sessionManager: SessionManager
 	private lateinit var userRepository: UserRepository
 
-	override fun onCreate(savedInstanceState: Bundle?) {
-		// harus menggunakan Light Theme
-		AppCompatDelegate.setDefaultNightMode(
-			AppCompatDelegate.MODE_NIGHT_NO
-		)
+	private val prefs by lazy {
+		getSharedPreferences(SettingActivity.PREFS_NAME, Context.MODE_PRIVATE)
+	}
 
+	override fun onCreate(savedInstanceState: Bundle?) {
+		AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
 		super.onCreate(savedInstanceState)
 
-		// init sessionManager
 		sessionManager = SessionManager(this)
-		
-		// init userRepository
 		val dbHelper = AppDatabaseHelper(this)
 		userRepository = UserRepository(dbHelper)
 
-		// Jika sudah login → langsung ke MainActivity
 		if (sessionManager.isLoggedIn()) {
 			navigateToMain()
 			return
 		}
 
 		setContentView(R.layout.activity_login)
-
 		initView()
 		initAction()
+		displayWorkingType()
 	}
 
 	private fun initView() {
@@ -61,17 +57,19 @@ class LoginActivity : AppCompatActivity() {
 		etPassword = findViewById(R.id.etPassword)
 		btnLogin = findViewById(R.id.btnLogin)
 		tvSetting = findViewById(R.id.tvSetting)
-
-		// Fokus awal ke Username
+		tvWorkingTypeTitle = findViewById(R.id.tvWorkingTypeTitle)
 		etUsername.requestFocus()
 	}
 
-	private fun initAction() {
+	private fun displayWorkingType() {
+		val workingTypeName = prefs.getString(SettingActivity.KEY_WORKING_TYPE, WorkingTypes.NONE.name)
+		val workingType = WorkingTypes.entries.find { it.name == workingTypeName } ?: WorkingTypes.NONE
+		tvWorkingTypeTitle.text = workingType.displayName
+	}
 
-		// Enter di Username
+	private fun initAction() {
 		etUsername.setOnEditorActionListener { _, _, _ ->
 			val username = etUsername.text.toString().trim()
-
 			if (username.isEmpty()) {
 				etUsername.error = "Username wajib diisi"
 				etUsername.requestFocus()
@@ -81,33 +79,32 @@ class LoginActivity : AppCompatActivity() {
 			true
 		}
 
-		// Enter di Password → Login
 		etPassword.setOnEditorActionListener { _, _, _ ->
 			val username = etUsername.text.toString().trim()
 			val password = etPassword.text.toString().trim()
-
 			if (validateInput(username, password)) {
 				doLogin(username, password)
 			}
 			true
 		}
 
-		// Klik tombol Login
 		btnLogin.setOnClickListener {
 			val username = etUsername.text.toString().trim()
 			val password = etPassword.text.toString().trim()
-
 			if (validateInput(username, password)) {
 				doLogin(username, password)
 			}
 		}
 
-
-		// buka setting
 		tvSetting.setOnClickListener {
 			val intent = Intent(this, SettingActivity::class.java)
 			startActivity(intent)
 		}
+	}
+
+	override fun onResume() {
+		super.onResume()
+		displayWorkingType()
 	}
 
 	private fun validateInput(username: String, password: String): Boolean {
@@ -116,7 +113,6 @@ class LoginActivity : AppCompatActivity() {
 			etUsername.requestFocus()
 			return false
 		}
-
 		if (password.isEmpty()) {
 			etPassword.error = "Password wajib diisi"
 			etPassword.requestFocus()
@@ -127,19 +123,29 @@ class LoginActivity : AppCompatActivity() {
 
 	private fun doLogin(username: String, pass: String) {
 		val user = userRepository.login(username, pass)
-		
 		if (user != null) {
-			// Simpan session menggunakan data dari database
-			sessionManager.createLoginSession(
-				userId = user.username,
-				username = user.username,
-				token = DUMMY_TOKEN // Token masih dummy karena belum ada API
-			)
-
-			Toast.makeText(this, "Login berhasil sebagai ${user.fullname}", Toast.LENGTH_SHORT).show()
-			navigateToMain()
+			if (checkAuthorization(user)) {
+				sessionManager.createLoginSession(user)
+				Toast.makeText(this, "Login berhasil sebagai ${user.fullname}", Toast.LENGTH_SHORT).show()
+				navigateToMain()
+			} else {
+				Toast.makeText(this, "Anda tidak memiliki akses untuk working type ini", Toast.LENGTH_LONG).show()
+			}
 		} else {
 			Toast.makeText(this, "Username atau password salah", Toast.LENGTH_SHORT).show()
+		}
+	}
+
+	private fun checkAuthorization(user: User): Boolean {
+		if (user.isAdmin) return true
+		
+		val workingTypeName = prefs.getString(SettingActivity.KEY_WORKING_TYPE, WorkingTypes.NONE.name)
+		return when (workingTypeName) {
+			WorkingTypes.OPNAME.name -> user.allowOpname
+			WorkingTypes.RECEIVING.name -> user.allowReceiving
+			WorkingTypes.TRANSFER.name -> user.allowTransfer
+			WorkingTypes.PRINTLABEL.name -> user.allowPrintlabel
+			else -> false
 		}
 	}
 

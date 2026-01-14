@@ -3,25 +3,36 @@ package com.ferrine.stockopname.ui.setting
 import android.content.Context
 import android.os.Bundle
 import android.view.MenuItem
+import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.EditText
-import android.widget.Spinner
+import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.Toolbar
 import com.ferrine.stockopname.R
+import com.ferrine.stockopname.data.db.AppDatabaseHelper
 import com.ferrine.stockopname.data.model.BarcodeScannerOptions
 import com.ferrine.stockopname.data.model.PrinterOptions
 import com.ferrine.stockopname.data.model.WorkingTypes
 import com.ferrine.stockopname.utils.SessionManager
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 
 class SettingActivity : AppCompatActivity() {
 
-    private lateinit var etSiteCode: EditText
-    private lateinit var etBrandCode: EditText
-    private lateinit var spWorkingType: Spinner
-    private lateinit var spBarcodeReader: Spinner
-    private lateinit var spPrinter: Spinner
+    private lateinit var tilSiteCode: TextInputLayout
+    private lateinit var tilBrandCode: TextInputLayout
+    private lateinit var tilWorkingType: TextInputLayout
+    
+    private lateinit var etSiteCode: TextInputEditText
+    private lateinit var etBrandCode: TextInputEditText
+    private lateinit var spWorkingType: AutoCompleteTextView
+    private lateinit var spBarcodeReader: AutoCompleteTextView
+    private lateinit var spPrinter: AutoCompleteTextView
+    private lateinit var btnResetData: Button
 
     private val sessionManager by lazy { SessionManager(this) }
 
@@ -30,11 +41,10 @@ class SettingActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-		// harus menggunakan Light Theme
-		AppCompatDelegate.setDefaultNightMode(
-			AppCompatDelegate.MODE_NIGHT_NO
-		)
-
+        // harus menggunakan Light Theme
+        AppCompatDelegate.setDefaultNightMode(
+            AppCompatDelegate.MODE_NIGHT_NO
+        )
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setting)
@@ -49,67 +59,80 @@ class SettingActivity : AppCompatActivity() {
         }
 
         bindView()
-        setupWorkingTypeSpinner()
-        setupBarcodeReaderSpinner()
-        setupPrinterSpinner()
+        setupSpinners()
         loadSetting()
         setupUIBasedOnLoginStatus()
+        setupListeners()
     }
 
     private fun bindView() {
+        tilSiteCode = findViewById(R.id.tilSiteCode)
+        tilBrandCode = findViewById(R.id.tilBrandCode)
+        tilWorkingType = findViewById(R.id.tilWorkingType)
+        
         etSiteCode = findViewById(R.id.etSiteCode)
         etBrandCode = findViewById(R.id.etBrandCode)
         spWorkingType = findViewById(R.id.spWorkingType)
         spBarcodeReader = findViewById(R.id.spBarcodeReader)
         spPrinter = findViewById(R.id.spPrinter)
+        btnResetData = findViewById(R.id.btnResetData)
+    }
+
+    private fun setupListeners() {
+        btnResetData.setOnClickListener {
+            showResetConfirmationDialog()
+        }
+    }
+
+    private fun showResetConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Reset Data")
+            .setMessage("Apakah Anda yakin ingin menghapus semua data transaksi dan master data? Tindakan ini tidak dapat dibatalkan.")
+            .setPositiveButton("Ya, Reset") { _, _ ->
+                resetData()
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun resetData() {
+        try {
+            val dbHelper = AppDatabaseHelper(this)
+            dbHelper.resetDatabase()
+            Toast.makeText(this, "Data berhasil direset", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Gagal mereset data: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun setupUIBasedOnLoginStatus() {
         val isLoggedIn = sessionManager.isLoggedIn()
+        val isAdmin = sessionManager.isAdmin
         
         // Disable input jika sudah login, enable jika belum/sudah logout
-        etSiteCode.isEnabled = !isLoggedIn
-        etBrandCode.isEnabled = !isLoggedIn
-        spWorkingType.isEnabled = !isLoggedIn
+        tilSiteCode.isEnabled = !isLoggedIn
+        tilBrandCode.isEnabled = !isLoggedIn
+        tilWorkingType.isEnabled = !isLoggedIn
+
+        // Tombol Reset Data hanya muncul jika Admin dan sudah Login
+        btnResetData.visibility = if (isLoggedIn && isAdmin) View.VISIBLE else View.GONE
     }
 
-    private fun setupWorkingTypeSpinner() {
-        val options = WorkingTypes.entries.map { it.displayName }
+    private fun setupSpinners() {
+        // Working Type
+        val workingTypeOptions = WorkingTypes.entries.map { it.displayName }
+        val wtAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, workingTypeOptions)
+        spWorkingType.setAdapter(wtAdapter)
 
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            options
-        )
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        // Barcode Reader
+        val barcodeOptions = BarcodeScannerOptions.entries.map { it.displayName }
+        val brAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, barcodeOptions)
+        spBarcodeReader.setAdapter(brAdapter)
 
-        spWorkingType.adapter = adapter
-    }
-
-    private fun setupBarcodeReaderSpinner() {
-        val options = BarcodeScannerOptions.entries.map { it.displayName }
-
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            options
-        )
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
-        spBarcodeReader.adapter = adapter
-    }
-
-    private fun setupPrinterSpinner() {
-        val options = PrinterOptions.entries.map { it.displayName }
-
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            options
-        )
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
-        spPrinter.adapter = adapter
+        // Printer
+        val printerOptions = PrinterOptions.entries.map { it.displayName }
+        val pAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, printerOptions)
+        spPrinter.setAdapter(pAdapter)
     }
 
     /**
@@ -120,31 +143,30 @@ class SettingActivity : AppCompatActivity() {
         etBrandCode.setText(prefs.getString(KEY_BRAND_CODE, ""))
 
         val workingTypeName = prefs.getString(KEY_WORKING_TYPE, WorkingTypes.NONE.name)
-        val workingTypeIndex = WorkingTypes.entries.indexOfFirst { it.name == workingTypeName }
-            .coerceAtLeast(0)
-        spWorkingType.setSelection(workingTypeIndex)
+        val workingType = WorkingTypes.entries.find { it.name == workingTypeName } ?: WorkingTypes.NONE
+        spWorkingType.setText(workingType.displayName, false)
 
         val barcodeReaderName = prefs.getString(KEY_BARCODE_READER, BarcodeScannerOptions.SCANNER.name)
-        val barcodeIndex = BarcodeScannerOptions.entries.indexOfFirst { it.name == barcodeReaderName }
-            .coerceAtLeast(0)
-        spBarcodeReader.setSelection(barcodeIndex)
+        val barcodeOption = BarcodeScannerOptions.entries.find { it.name == barcodeReaderName } ?: BarcodeScannerOptions.SCANNER
+        spBarcodeReader.setText(barcodeOption.displayName, false)
 
         val printerPrefix = prefs.getString(KEY_PRINTER_PREFIX, "")
-        val printerIndex = PrinterOptions.entries.indexOfFirst { it.prefix == printerPrefix }
-            .coerceAtLeast(0)
-        spPrinter.setSelection(printerIndex)
+        val printerOption = PrinterOptions.entries.find { it.prefix == printerPrefix } ?: PrinterOptions.NONE
+        spPrinter.setText(printerOption.displayName, false)
     }
 
     /**
      * Simpan setting otomatis
      */
     private fun saveSetting() {
-        // Jangan simpan jika field di-disable (asumsi: tidak ada perubahan data kritikal saat login)
-        // Atau tetap simpan jika perlu, tapi biasanya yang di-disable tidak akan berubah.
-        
-        val selectedWorkingType = WorkingTypes.entries[spWorkingType.selectedItemPosition]
-        val selectedBarcodeReader = BarcodeScannerOptions.entries[spBarcodeReader.selectedItemPosition]
-        val selectedPrinter = PrinterOptions.entries[spPrinter.selectedItemPosition]
+        val workingTypeDisplayName = spWorkingType.text.toString()
+        val selectedWorkingType = WorkingTypes.entries.find { it.displayName == workingTypeDisplayName } ?: WorkingTypes.NONE
+
+        val barcodeDisplayName = spBarcodeReader.text.toString()
+        val selectedBarcodeReader = BarcodeScannerOptions.entries.find { it.displayName == barcodeDisplayName } ?: BarcodeScannerOptions.SCANNER
+
+        val printerDisplayName = spPrinter.text.toString()
+        val selectedPrinter = PrinterOptions.entries.find { it.displayName == printerDisplayName } ?: PrinterOptions.NONE
 
         prefs.edit().apply {
             putString(KEY_SITE_CODE, etSiteCode.text.toString())
