@@ -44,20 +44,20 @@
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/fragment_printlabel_camera"
-                    android:name="com.birumuda.stockopname.ui.ScannerCameraFragment"
+                    android:name="com.ferrine.stockopname.ui.ScannerCameraFragment"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/fragment_printlabel_barcode"
-                    android:name="com.birumuda.stockopname.ui.ScannerBarcodeFragment"
+                    android:name="com.ferrine.stockopname.ui.ScannerBarcodeFragment"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp" />
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/fragment_printlabel_result"
-                    android:name="com.birumuda.stockopname.ui.ScannerResultFragment"
+                    android:name="com.ferrine.stockopname.ui.ScannerResultFragment"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp" />

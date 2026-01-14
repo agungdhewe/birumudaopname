@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-	namespace = "com.birumuda.stockopname"
+	namespace = "com.ferrine.stockopname"
 	compileSdk = 34
 
 	defaultConfig {
-		applicationId = "com.birumuda.stockopname"
+		applicationId = "com.ferrine.stockopname"
 		minSdk = 21
 		targetSdk = 34
 		versionCode = 1
