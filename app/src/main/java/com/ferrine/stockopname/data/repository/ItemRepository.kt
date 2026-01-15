@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.ferrine.stockopname.BaseDataRepository
 import com.ferrine.stockopname.data.db.AppDatabaseHelper
 import com.ferrine.stockopname.data.db.DbContract
+import com.ferrine.stockopname.data.model.Barcode
 import com.ferrine.stockopname.data.model.Item
 
 class ItemRepository(context: Context) : BaseDataRepository() {
@@ -123,12 +124,15 @@ class ItemRepository(context: Context) : BaseDataRepository() {
         )
     }
 
-    fun insertOrUpdateBatch(items: List<Item>) {
+    fun insertOrUpdateBatch(items: List<Pair<Item, Barcode>>) {
         val db = dbHelper.writableDatabase
         db.beginTransaction()
         try {
-            for (item in items) {
-                val values = ContentValues().apply {
+            for (pair in items) {
+                val item = pair.first
+                val barcode = pair.second
+                
+                val itemValues = ContentValues().apply {
                     put(DbContract.ItemTable.COLUMN_ITEM_ID, item.itemId)
                     put(DbContract.ItemTable.COLUMN_ART, item.article)
                     put(DbContract.ItemTable.COLUMN_MAT, item.material)
@@ -148,7 +152,18 @@ class ItemRepository(context: Context) : BaseDataRepository() {
                 db.insertWithOnConflict(
                     DbContract.ItemTable.TABLE_NAME,
                     null,
-                    values,
+                    itemValues,
+                    SQLiteDatabase.CONFLICT_REPLACE
+                )
+                
+                val barcodeValues = ContentValues().apply {
+                    put(DbContract.BarcodeTable.COLUMN_BARCODE, barcode.barcode)
+                    put(DbContract.BarcodeTable.COLUMN_ITEM_ID, barcode.itemId)
+                }
+                db.insertWithOnConflict(
+                    DbContract.BarcodeTable.TABLE_NAME,
+                    null,
+                    barcodeValues,
                     SQLiteDatabase.CONFLICT_REPLACE
                 )
             }

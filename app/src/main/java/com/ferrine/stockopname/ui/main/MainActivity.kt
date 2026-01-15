@@ -1,7 +1,6 @@
 package com.ferrine.stockopname.ui.main
 
 import android.content.Context
-import android.content.DialogInterface
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -16,6 +15,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.lifecycleScope
 import com.ferrine.stockopname.BaseDrawerActivity
 import com.ferrine.stockopname.R
+import com.ferrine.stockopname.data.model.Barcode
 import com.ferrine.stockopname.data.model.Item
 import com.ferrine.stockopname.data.model.WorkingTypes
 import com.ferrine.stockopname.data.repository.ItemRepository
@@ -28,6 +28,25 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 class MainActivity : BaseDrawerActivity() {
+
+    companion object {
+        const val COL_BARCODE = 0
+        const val COL_ITEM_ID = 1
+        const val COL_ARTICLE = 2
+        const val COL_MATERIAL = 3
+        const val COL_COLOR = 4
+        const val COL_SIZE = 5
+        const val COL_NAME = 6
+        const val COL_DESCRIPTION = 7
+        const val COL_CATEGORY = 8
+        const val COL_PRICE = 9
+        const val COL_SELL_PRICE = 10
+        const val COL_DISCOUNT = 11
+        const val COL_IS_SPECIAL_PRICE = 12
+        const val COL_STOCK_QTY = 13
+        const val COL_PRINT_QTY = 14
+        const val COL_PRICING_ID = 15
+    }
 
     private lateinit var tvSiteCode: TextView
     private lateinit var tvBrandCode: TextView
@@ -189,13 +208,27 @@ class MainActivity : BaseDrawerActivity() {
     private fun importCsv(uri: Uri) {
         lifecycleScope.launch {
             try {
-                val items = withContext(Dispatchers.IO) {
+                val (itemsWithBarcodes, failedCount) = withContext(Dispatchers.IO) {
                     parseCsv(uri)
                 }
-                withContext(Dispatchers.IO) {
-                    itemRepository.insertOrUpdateBatch(items)
+                
+                if (itemsWithBarcodes.isEmpty()) {
+                    val msg = if (failedCount > 0) "Gagal: $failedCount baris tidak valid" else "File CSV kosong atau format salah"
+                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+                    return@launch
                 }
-                Toast.makeText(this@MainActivity, "Berhasil mengimpor ${items.size} item", Toast.LENGTH_SHORT).show()
+
+                withContext(Dispatchers.IO) {
+                    itemRepository.insertOrUpdateBatch(itemsWithBarcodes)
+                }
+
+                val message = if (failedCount > 0) {
+                    "Berhasil impor ${itemsWithBarcodes.size} item. ($failedCount baris mismatch diabaikan)"
+                } else {
+                    "Berhasil mengimpor ${itemsWithBarcodes.size} item"
+                }
+                
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
                 updateCounts()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -204,41 +237,69 @@ class MainActivity : BaseDrawerActivity() {
         }
     }
 
-    private fun parseCsv(uri: Uri): List<Item> {
-        val items = mutableListOf<Item>()
+    private fun parseCsv(uri: Uri): Pair<List<Pair<Item, Barcode>>, Int> {
+        val result = mutableListOf<Pair<Item, Barcode>>()
+        var failedCount = 0
         contentResolver.openInputStream(uri)?.use { inputStream ->
             BufferedReader(InputStreamReader(inputStream)).use { reader ->
                 // Skip header
                 val header = reader.readLine()
                 var line: String? = reader.readLine()
                 while (line != null) {
-                    val tokens = line.split("|")
-                    if (tokens.size >= 15) {
-                        // barcode|itemId|article|material|color|size|name|description|category|price|sellPrice|discount|isSpecialPrice|stockQty|printQty|pricingId
-                        val item = Item(
-                            itemId = tokens[0].trim(),
-                            article = tokens[1].trim(),
-                            material = tokens[2].trim(),
-                            color = tokens[3].trim(),
-                            size = tokens[4].trim(),
-                            name = tokens[5].trim(),
-                            description = tokens[6].trim(),
-                            category = tokens[7].trim(),
-                            price = tokens[8].trim().toDoubleOrNull() ?: 0.0,
-                            sellPrice = tokens[9].trim().toDoubleOrNull() ?: 0.0,
-                            discount = tokens[10].trim().toDoubleOrNull() ?: 0.0,
-                            isSpecialPrice = tokens[11].trim().lowercase() == "true" || tokens[11].trim() == "1",
-                            stockQty = tokens[12].trim().toIntOrNull() ?: 0,
-                            printQty = tokens[13].trim().toIntOrNull() ?: 0,
-                            pricingId = tokens[14].trim()
-                        )
-                        items.add(item)
+                    if (line.isBlank()) {
+                        line = reader.readLine()
+                        continue
+                    }
+                    
+                    // Coba deteksi delimiter (default pipe, fallback ke koma atau semicolon)
+                    var tokens = line.split("|")
+                    if (tokens.size < 2) tokens = line.split(",")
+                    if (tokens.size < 2) tokens = line.split(";")
+
+                    if (tokens.size >= 2) { // Minimal ada barcode dan itemId
+                        try {
+                            val barcodeStr = tokens[COL_BARCODE].trim()
+                            val itemIdStr = tokens[COL_ITEM_ID].trim()
+                            
+                            if (barcodeStr.isEmpty() || itemIdStr.isEmpty()) {
+                                failedCount++
+                            } else {
+                                val item = Item(
+                                    itemId = itemIdStr,
+                                    article = tokens.getOrElse(COL_ARTICLE) { "" }.trim(),
+                                    material = tokens.getOrElse(COL_MATERIAL) { "" }.trim(),
+                                    color = tokens.getOrElse(COL_COLOR) { "" }.trim(),
+                                    size = tokens.getOrElse(COL_SIZE) { "" }.trim(),
+                                    name = tokens.getOrElse(COL_NAME) { "" }.trim(),
+                                    description = tokens.getOrElse(COL_DESCRIPTION) { "" }.trim(),
+                                    category = tokens.getOrElse(COL_CATEGORY) { "" }.trim(),
+                                    price = tokens.getOrElse(COL_PRICE) { "0" }.trim().replace(",", ".").toDoubleOrNull() ?: 0.0,
+                                    sellPrice = tokens.getOrElse(COL_SELL_PRICE) { "0" }.trim().replace(",", ".").toDoubleOrNull() ?: 0.0,
+                                    discount = tokens.getOrElse(COL_DISCOUNT) { "0" }.trim().replace(",", ".").toDoubleOrNull() ?: 0.0,
+                                    isSpecialPrice = tokens.getOrElse(COL_IS_SPECIAL_PRICE) { "" }.trim().lowercase().let { it == "true" || it == "1" || it == "yes" },
+                                    stockQty = tokens.getOrElse(COL_STOCK_QTY) { "0" }.trim().toIntOrNull() ?: 0,
+                                    printQty = tokens.getOrElse(COL_PRINT_QTY) { "0" }.trim().toIntOrNull() ?: 0,
+                                    pricingId = tokens.getOrElse(COL_PRICING_ID) { "" }.trim()
+                                )
+                                
+                                val barcode = Barcode(
+                                    barcode = barcodeStr,
+                                    itemId = itemIdStr
+                                )
+                                
+                                result.add(Pair(item, barcode))
+                            }
+                        } catch (e: Exception) {
+                            failedCount++
+                        }
+                    } else {
+                        failedCount++
                     }
                     line = reader.readLine()
                 }
             }
         }
-        return items
+        return Pair(result, failedCount)
     }
 
     private fun exportDatabase(uri: Uri) {

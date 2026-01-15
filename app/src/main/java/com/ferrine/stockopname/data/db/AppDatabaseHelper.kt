@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import com.ferrine.stockopname.data.repository.UserRepository
 
 class AppDatabaseHelper(context: Context) :
-	SQLiteOpenHelper(context, "stockopname.db", null, 1) {
+	SQLiteOpenHelper(context, "stockopname.db", null, 2) { // Naikkan versi ke 2
 
 	override fun onCreate(db: SQLiteDatabase) {
 		createUserTable(db)
@@ -18,6 +18,13 @@ class AppDatabaseHelper(context: Context) :
 	}
 
 	override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+		if (oldVersion < 2) {
+			// Sederhananya untuk dev: drop dan create ulang
+			db.execSQL("DROP TABLE IF EXISTS ${DbContract.ItemTable.TABLE_NAME}")
+			db.execSQL("DROP TABLE IF EXISTS ${DbContract.BarcodeTable.TABLE_NAME}")
+			createItemTable(db)
+			createBarcodeTable(db)
+		}
 	}
 
 	fun resetDatabase() {
@@ -45,11 +52,9 @@ class AppDatabaseHelper(context: Context) :
 	}
 
 	private fun insertDummyUsers(db: SQLiteDatabase) {
-		// agung isAdmin = false dan allowOpname
 		insertUser(db, "user", "User", "user",
 			isAdmin = false, allowOpname = true, allowReceiving = false, allowTransfer = false, allowPrintlabel = false)
 		
-		// admin isAdmin = true, dan allow all
 		insertUser(db, "admin", "Admin", "admin", 
 			isAdmin = true, allowOpname = true, allowReceiving = true, allowTransfer = true, allowPrintlabel = true)
 	}
@@ -81,7 +86,7 @@ class AppDatabaseHelper(context: Context) :
 	private fun createItemTable(db: SQLiteDatabase) {
 		db.execSQL("""
 			CREATE TABLE ${DbContract.ItemTable.TABLE_NAME} (
-				${DbContract.ItemTable.COLUMN_ITEM_ID} INTEGER PRIMARY KEY,
+				${DbContract.ItemTable.COLUMN_ITEM_ID} TEXT PRIMARY KEY, -- Ubah ke TEXT
 				${DbContract.ItemTable.COLUMN_ART} TEXT,
 				${DbContract.ItemTable.COLUMN_MAT} TEXT,
 				${DbContract.ItemTable.COLUMN_COL} TEXT,
